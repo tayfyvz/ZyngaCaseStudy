@@ -14,6 +14,7 @@
     <setting file="file://$PROJECT_DIR$/Assets/_GameFiles/Scripts/Controllers/PieceController.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Assets/_GameFiles/Scripts/Interfaces/IPiece.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Assets/_GameFiles/Scripts/ScriptableObjects/GridData.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Assets/_GameFiles/Scripts/Utilities/GridColorCheck.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
@@ -75,7 +76,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1674651203189</updated>
-      <workItem from="1674651256533" duration="11022000" />
+      <workItem from="1674651256533" duration="19592000" />
     </task>
     <servers />
   </component>

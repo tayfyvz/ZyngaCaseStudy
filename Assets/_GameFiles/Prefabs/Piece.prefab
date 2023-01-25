@@ -49,6 +49,8 @@ MonoBehaviour:
   spriteRenderer: {fileID: 0}
   pieceColorType: 0
   coordination: 0000000000000000
+  _angleList:
+  - 180
 --- !u!212 &3931803115841115326
 SpriteRenderer:
   m_ObjectHideFlags: 0

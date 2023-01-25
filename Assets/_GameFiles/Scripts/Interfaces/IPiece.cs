@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using _GameFiles.Scripts.Controllers;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,6 +9,7 @@ namespace _GameFiles.Scripts.Interfaces
 {
     public interface IPiece
     {
+        public Action<PieceController> OnPieceControllerSelected { get; set; }
         public SpriteRenderer SpriteRenderer { get; }
         public int[] Coordination { get; }
         public ColorType PieceColorType { get;}
