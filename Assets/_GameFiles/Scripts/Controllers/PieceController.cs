@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using _GameFiles.Scripts.Interfaces;
 using DG.Tweening;
 using UnityEngine;
@@ -13,9 +14,15 @@ namespace _GameFiles.Scripts.Controllers
         [SerializeField] private int[] coordination = new int[2];
 
         public Action<PieceController> OnPieceControllerSelected { get; set; }
+        public Action<List<PieceController>> OnPieceAfterMove { get; set; }
         public SpriteRenderer SpriteRenderer => spriteRenderer;
         public IPiece.ColorType PieceColorType => pieceColorType;
-        public int[] Coordination => coordination;
+        public int[] Coordination
+        {
+            get => coordination;
+            set => coordination = value;
+        }
+
         public bool isSelected, isChangePlace;
         
         private List<float> _angleList = new List<float>
@@ -43,7 +50,14 @@ namespace _GameFiles.Scripts.Controllers
             
             transform.DOMove(pos, .3f).SetEase(Ease.Linear);
         }
-        
+
+        public void Exploded()
+        {
+            isSelected = false;
+            isChangePlace = false;
+            gameObject.SetActive(false);
+        }
+
         private void OnMouseDown()
         {
             OnCubeSelected();
@@ -53,7 +67,31 @@ namespace _GameFiles.Scripts.Controllers
             isSelected = true;
             OnPieceControllerSelected?.Invoke(this);
         }
-        
+
+        public void PieceMoved()
+        {
+            HashSet<PieceController> sameColumnSet = new HashSet<PieceController>();
+            HashSet<PieceController> sameRowSet = new HashSet<PieceController>();
+            HashSet<PieceController> explodeSet = new HashSet<PieceController>();
+
+            sameColumnSet.UnionWith(RayThrower(0));
+            sameColumnSet.UnionWith(RayThrower(180));
+            
+            sameRowSet.UnionWith(RayThrower(90));
+            sameRowSet.UnionWith(RayThrower(270));
+
+            if (sameColumnSet.Count > 2)
+            {
+                explodeSet.UnionWith(sameColumnSet);
+            }
+
+            if (sameRowSet.Count > 2)
+            {
+                explodeSet.UnionWith(sameRowSet);
+            }
+            
+            OnPieceAfterMove?.Invoke(explodeSet.ToList());
+        }
         public void RayThrower(bool condition)
         {
             foreach (float angle in _angleList)
@@ -62,10 +100,22 @@ namespace _GameFiles.Scripts.Controllers
                 
                 if (cube != null)
                 {
-                    Debug.Log(cube.pieceColorType);
                     cube.isChangePlace = condition;
                 }
             }
+        }
+
+        private List<PieceController> RayThrower(float angle)
+        {
+            List<PieceController> connectedPieces = new List<PieceController>();
+            PieceController cube = CloseDistRaycast(angle);
+                            
+            if (cube != null && cube.PieceColorType == pieceColorType)
+            {
+                connectedPieces.AddRange(cube.RayThrower(angle));
+            } 
+            connectedPieces.Add(this);
+            return connectedPieces;
         }
         private PieceController CloseDistRaycast(float angle)
         {

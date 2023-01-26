@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: gridData
   m_EditorClassIdentifier: 
   pieceControllerPrefab: {fileID: 3931803115841115324, guid: 446e72c93dee68e45ba967f53e526e3d, type: 3}
-  maxPiece: 64
+  maxPiece: 65
