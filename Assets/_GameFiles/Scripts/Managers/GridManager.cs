@@ -1,17 +1,13 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Linq;
 using _GameFiles.Scripts.Controllers;
 using _GameFiles.Scripts.Interfaces;
 using _GameFiles.Scripts.ScriptableObjects;
 using _GameFiles.Scripts.Utilities;
-using DG.Tweening;
 using TadPoleFramework;
 using TadPoleFramework.Core;
 using UnityEngine;
-using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 namespace _GameFiles.Scripts.Managers
 {
@@ -24,8 +20,15 @@ namespace _GameFiles.Scripts.Managers
         [SerializeField] private PieceController[] _selectedPieces = new PieceController[2];
         
         private PieceController[,] _grid = new PieceController[8, 8];
-        private List<PieceController> _movedPieces = new List<PieceController>();
-        private bool _isFirstCame;
+        [SerializeField] private List<PieceController> _movedPieces = new List<PieceController>();
+
+        private HashSet<PieceController> _explodeSet = new HashSet<PieceController>();
+        [SerializeField] private int movedPieceCounter;
+
+        private Coroutine _enumerator;
+
+        public bool _isFirstCame;
+        public bool isFirstContinue;
         public override void Receive(BaseEventArgs baseEventArgs)
         {
             switch (baseEventArgs)
@@ -96,23 +99,29 @@ namespace _GameFiles.Scripts.Managers
         {
             if (_selectedPieces[0] == null)
             {
+                _movedPieces.Clear();
+                _explodeSet.Clear();
+                movedPieceCounter = 0;
+                _movedPieces.Add(piece);
                 _selectedPieces[0] = piece;
+                _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(true);
                 piece.RayThrower(true);
             }
             else if(piece.isChangePlace)
             {
-                _selectedPieces[1] = piece;
+                _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(false);
 
+                _movedPieces.Add(piece);
+                _selectedPieces[1] = piece;
+                
+                _grid[_selectedPieces[0].Coordination[0], _selectedPieces[0].Coordination[1]] = _selectedPieces[1];
+                _grid[_selectedPieces[1].Coordination[0], _selectedPieces[1].Coordination[1]] = _selectedPieces[0];
+                
+                _isFirstCame = false;
+                
+                
                 ChangePosition.SwapPosition(_selectedPieces[0], _selectedPieces[1]);
 
-                int x = _selectedPieces[0].Coordination[0];
-                int y = _selectedPieces[0].Coordination[1];
-                Debug.Log(_grid[x,y].Coordination[0] + " " +_grid[x,y].Coordination[0] +" once");
-                Debug.Log("swapped");
-                _grid[x, y] = _selectedPieces[0];
-                _grid[_selectedPieces[1].Coordination[0], _selectedPieces[1].Coordination[1]] = _selectedPieces[0];
-                Debug.Log(_grid[x,y].Coordination[0] + " " +_grid[x,y].Coordination[0] +" sonra");
-                
                 _selectedPieces[0].isSelected = false;
                 _selectedPieces[1].isSelected = false;
 
@@ -121,98 +130,176 @@ namespace _GameFiles.Scripts.Managers
             else
             {
                 _selectedPieces[0].isSelected = false;
+                _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(false);
                 _selectedPieces[0].RayThrower(false);
                 _selectedPieces[0] = piece;
+                _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(true);
                 _selectedPieces[0].RayThrower(true);
             }
+            
         }
         private void OnPieceAfterMoveHandler(List<PieceController> explodeList)
         {
-            Debug.Log(explodeList.Count);
-            if (explodeList.Count <= 0)
+            movedPieceCounter++;
+
+            if (explodeList.Count <= 0 && _selectedPieces[0] != null)
             {
                 if (!_isFirstCame)
                 {
+                    Debug.Log("VAR");
                     _isFirstCame = true;
+                    isFirstContinue = false;
                 }
-                else
+                else if (!isFirstContinue)
                 {
+
+                    Debug.Log("RESWAPPOS");
                     ChangePosition.ReSwapPosition(_selectedPieces[0], _selectedPieces[1]);
-                    
-                    _grid[_selectedPieces[0].Coordination[0], _selectedPieces[0].Coordination[1]] = _selectedPieces[1];
-                    _grid[_selectedPieces[1].Coordination[0], _selectedPieces[1].Coordination[1]] = _selectedPieces[0];
-                    Debug.Log("swapped re");
+
+                    _grid[_selectedPieces[0].Coordination[0], _selectedPieces[0].Coordination[1]] =
+                        _selectedPieces[0];
+                    _grid[_selectedPieces[1].Coordination[0], _selectedPieces[1].Coordination[1]] =
+                        _selectedPieces[1];
+
                     _selectedPieces[0] = null;
                     _selectedPieces[1] = null;
+                    _movedPieces.Clear();
+                    _explodeSet.Clear();
+                    movedPieceCounter = 0;
                     _isFirstCame = false;
+                    isFirstContinue = false;
+                    return;
                 }
+                MovementFinished(_explodeSet.ToList());
                 return;
             }
 
+            _isFirstCame = true;
+            isFirstContinue = true;
             
+            
+            _explodeSet.UnionWith(explodeList);
+            
+             MovementFinished(_explodeSet.ToList());
+             
+        }
 
+        private void MovementFinished(List<PieceController> explodeList)
+        {
+            if (movedPieceCounter != _movedPieces.Count || _explodeSet.Count == 0)
+            {
+                Debug.Log("Time for wait....." + movedPieceCounter + "  total : " + _movedPieces.Count);
+                return;
+            }
+            
+            Debug.Log(explodeList.Count + " bu kadar boom");
+            
             HashSet<int> explodedColumnSet = new HashSet<int>();
             
-            for (int i = 0; i < explodeList.Count; i++)
+            foreach (PieceController piece in explodeList)
             {
-                Debug.Log(explodeList[i].PieceColorType, explodeList[i]);
-                explodedColumnSet.Add(explodeList[i].Coordination[0]);
-                Explode(explodeList[i]);
+                explodedColumnSet.Add(piece.Coordination[0]);
+                Explode(piece);
             }
 
-            if (explodedColumnSet.Count <= 1)
-            {
-                Debug.Log("Column explode");
-                
-                List<int> columnList = explodeList.Select(piece => piece.Coordination[1]).ToList();
-                columnList.Sort();
-                
-                if (columnList[^1] < 7)
-                {
-                    Debug.Log(columnList[^1]);
-                    FallPieces(explodedColumnSet.Single(), columnList[^1], columnList[0]);
-                }
+            Debug.Log(explodedColumnSet.Count + " kadar kolon gitti");
 
-                //GetNewPieceToFall(explodedColumnSet.Single(), columnList[^1]);
-            }
-            else
+            _movedPieces.Clear();
+            _explodeSet.Clear();
+            movedPieceCounter = 0;
+
+            foreach (int row in explodedColumnSet)
             {
-                if (explodedColumnSet.Count != explodeList.Count)
+                
+                RowCheck(row);
+                
+            }
+
+            _selectedPieces[0] = null;
+            _selectedPieces[1] = null;
+            isFirstContinue = false;
+            _isFirstCame = false;
+            Debug.Log("SIFIRLANDI");
+
+            
+            _enumerator = StartCoroutine(ReCheck());
+            
+            // StartCoroutine(ReCheck());
+        }
+
+        private void RowCheck(int row)
+        {
+            int maxEmptyColumn = 0;
+            int minEmptyColumn = 7;
+
+            for (int i = 0; i < 8; i++)
+            {
+                if (_grid[row, i] == null)
                 {
-                    Debug.Log("L Shape Explode");
-                }
-                else
-                {
-                    Debug.Log("Row Explode");
+                    if (i < minEmptyColumn)
+                    {
+                        minEmptyColumn = i;
+                    }
+
+                    if (i > maxEmptyColumn)
+                    {
+                        maxEmptyColumn = i;
+                    }
                     
                 }
             }
+
+            Debug.Log("Row = " + row + " min Empty index = " + minEmptyColumn + " Max empty index = " + maxEmptyColumn );
+            FallPieces(row, maxEmptyColumn, minEmptyColumn);
+            GetNewPieceToFall(row, 7 - (maxEmptyColumn - minEmptyColumn));
         }
-        
+
         private void Explode(PieceController piece)
         {
             piece.Exploded();
             _piecesQueue.Enqueue(piece);
-        }
-        private void GetNewPieceToFall(int row, int column)
-        {
-            for (int i = column + 1; i < 8; i++)
-            {
-                Vector3 pos = _grid[row, i].transform.position;
-                PieceController pc = _piecesQueue.Dequeue();
-                IPiece.ColorType type = (IPiece.ColorType)UnityEngine.Random.Range(0, 5);
-                pc.SetPiece(pos,_sprites[(int)type],new int[] { row, i }, type);
-                _grid[row, i] = pc;
-            }
+            piece.OnPieceAfterMove -= OnPieceAfterMoveHandler;
+            piece.OnPieceControllerSelected -= OnPieceControllerSelectedHandler;
+            _grid[piece.Coordination[0], piece.Coordination[1]] = null;
         }
         private void FallPieces(int row, int column, int minEmptyColumn)
         {
             for (int i = column + 1; i < 8; i++)
             {
-                _movedPieces.Add(_grid[row, i]);
                 _grid = ChangePosition.MovePiece(row, i, minEmptyColumn, _grid);
+                _movedPieces.Add(_grid[row, i]);
                 minEmptyColumn++;
             }
+        }
+        private void GetNewPieceToFall(int row, int minEmptyIndex)
+        {
+            for (int i = minEmptyIndex; i < 8; i++)
+            {
+
+                Vector3 pos = new Vector3(row - 3.5f, i - 6);
+                PieceController pc = _piecesQueue.Dequeue();
+                pc.OnPieceAfterMove += OnPieceAfterMoveHandler;
+                pc.OnPieceControllerSelected += OnPieceControllerSelectedHandler;
+                IPiece.ColorType type = (IPiece.ColorType)UnityEngine.Random.Range(0, 5);
+                pc.SetPiece(pos,_sprites[(int)type],new int[] { row, i }, type);
+                _grid[row, i] = pc;
+                _movedPieces.Add(pc);
+            }
+        }
+
+        private IEnumerator ReCheck()
+        {
+            yield return new WaitForSeconds(1.0f);
+            
+            for (int i = 0; i < _movedPieces.Count; i++)
+            {
+                Debug.Log("set count : " + _explodeSet.Count);
+                _movedPieces[i].PieceMoved();
+            }
+            // yield return new WaitForSeconds(.5f);
+            // _movedPieces.Clear();
+            // movedPieceCounter = 0;
+            Debug.Log("recheckComplete");
         }
     }
 }

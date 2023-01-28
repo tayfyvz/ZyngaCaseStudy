@@ -24,6 +24,8 @@ namespace _GameFiles.Scripts.Interfaces
             Yellow
         }
 
+        public SpriteMask SpriteMask { get;}
+
         public void SetPiece(Vector3 pos, Sprite sprite, int[] coordinates, ColorType colorType);
         public void Exploded();
 

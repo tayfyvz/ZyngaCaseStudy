@@ -1,4 +1,5 @@
-﻿using _GameFiles.Scripts.Controllers;
+﻿using System.Collections;
+using _GameFiles.Scripts.Controllers;
 using DG.Tweening;
 using UnityEngine;
 
@@ -41,8 +42,11 @@ namespace _GameFiles.Scripts.Utilities
             
             piece.Coordination[0] = row;
             piece.Coordination[1] = moveColumn;
-            
-            piece.transform.DOMove(grid[row, moveColumn].transform.position, .5f);
+            Vector3 pos = new Vector3(row - 3.5f, moveColumn - 6);
+            piece.transform.DOMove(pos, .2f).OnComplete((() =>
+            {
+                piece.isMoveFinished = true;
+            }));
             
             grid[row, moveColumn] = piece;
             
