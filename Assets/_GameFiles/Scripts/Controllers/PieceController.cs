@@ -25,10 +25,9 @@ namespace _GameFiles.Scripts.Controllers
             set => coordination = value;
         }
 
-        public bool isSelected, isChangePlace;
-        public bool isMoveFinished;
+        public bool isChangePlace;
         
-        private List<float> _angleList = new List<float>
+        private readonly List<float> _angleList = new List<float>
         {
             0,
             90,
@@ -53,16 +52,22 @@ namespace _GameFiles.Scripts.Controllers
             pieceColorType = colorType;
             
             gameObject.SetActive(true);
-            
-            transform.DOMove(pos, .3f).SetEase(Ease.Linear).OnComplete((() =>
+
+            transform.DOMove(pos, .3f).SetEase(Ease.Linear);
+        }
+
+        public void DestroyPiece()
+        {
+            isChangePlace = false;
+            Vector3 pos = new Vector3(transform.position.x, 10, transform.position.z);
+            transform.DOMove(pos, .3f).SetEase(Ease.InBounce).OnComplete((() =>
             {
-                isMoveFinished = true;
+                gameObject.SetActive(false);
             }));
         }
 
         public void Exploded()
         {
-            isSelected = false;
             isChangePlace = false;
             gameObject.SetActive(false);
         }
@@ -73,13 +78,11 @@ namespace _GameFiles.Scripts.Controllers
         }
         private void OnCubeSelected()
         {
-            isSelected = true;
             OnPieceControllerSelected?.Invoke(this);
         }
 
         public void PieceMoved()
         {
-            isMoveFinished = true;
             
             HashSet<PieceController> sameColumnSet = new HashSet<PieceController>();
             HashSet<PieceController> sameRowSet = new HashSet<PieceController>();

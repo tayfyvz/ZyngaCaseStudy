@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using _GameFiles.Scripts.EventArgs;
+using _GameFiles.Scripts.Presenters;
 using TadPoleFramework;
 using TadPoleFramework.Core;
 using TadPoleFramework.UI;
@@ -11,9 +13,32 @@ namespace _GameFiles.Scripts.Managers._HighLevelManagers
         [SerializeField] private GameViewPresenter gameViewPresenter;
     
         private GameModel _gameModel;
+        
+        public override void Receive(BaseEventArgs baseEventArgs)
+        {
+            switch (baseEventArgs)
+            {
+                case SceneStartedEventArgs:
+                    BroadcastDownward(new SceneStartedEventArgs(_gameModel.Score));
+                    break;
+                case GridCreatedEventArgs gridCreatedEventArgs:
+                    BroadcastDownward(gridCreatedEventArgs);
+                    break;
+                case TimeIsFinishedEventArgs timeIsFinishedEventArgs:
+                    Broadcast(timeIsFinishedEventArgs);
+                    break;
+                case GridDestroyedEventArgs gridDestroyedEventArgs:
+                    BroadcastDownward(gridDestroyedEventArgs);
+                    break;
+                case PieceExplodedEventArgs pieceExplodedEventArgs:
+                    BroadcastDownward(pieceExplodedEventArgs);
+                    break;
+            }
+        }
         protected override void Awake()
         {
             base.Awake();
+            
             gameViewPresenter.InjectManager(this);
         }
 
@@ -23,13 +48,7 @@ namespace _GameFiles.Scripts.Managers._HighLevelManagers
             gameViewPresenter.ShowView();
         }
 
-        public override void Receive(BaseEventArgs baseEventArgs)
-        {
-            switch (baseEventArgs)
-            {
-            
-            }
-        }
+        
         public void InjectModel(GameModel gameModel)
         {
             this._gameModel = gameModel;

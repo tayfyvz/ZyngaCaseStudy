@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using _GameFiles.Scripts.Controllers;
+using _GameFiles.Scripts.EventArgs;
 using _GameFiles.Scripts.Interfaces;
 using _GameFiles.Scripts.ScriptableObjects;
 using _GameFiles.Scripts.Utilities;
-using TadPoleFramework;
+using DG.Tweening;
 using TadPoleFramework.Core;
 using UnityEngine;
 
@@ -15,30 +16,43 @@ namespace _GameFiles.Scripts.Managers
     {
         [SerializeField] private GridData gridData;
         
+        private readonly HashSet<PieceController> _explodeSet = new HashSet<PieceController>();
+        
+        private readonly Queue<PieceController> _piecesQueue = new Queue<PieceController>();
+        
         private List<Sprite> _sprites = new List<Sprite>();
-        private Queue<PieceController> _piecesQueue = new Queue<PieceController>();
-        [SerializeField] private PieceController[] _selectedPieces = new PieceController[2];
+        private readonly List<PieceController> _movedPieces = new List<PieceController>();
+        private readonly List<PieceController> _activePieces = new List<PieceController>();
         
         private PieceController[,] _grid = new PieceController[8, 8];
-        [SerializeField] private List<PieceController> _movedPieces = new List<PieceController>();
+        private readonly PieceController[] _selectedPieces = new PieceController[2];
+        
+        private int _movedPieceCounter;
 
-        private HashSet<PieceController> _explodeSet = new HashSet<PieceController>();
-        [SerializeField] private int movedPieceCounter;
-
-        private Coroutine _enumerator;
-
-        public bool _isFirstCame;
-        public bool isFirstContinue;
+        private bool _isFirstCame;
+        private bool _isFirstContinue;
         public override void Receive(BaseEventArgs baseEventArgs)
         {
             switch (baseEventArgs)
             {
-                case SceneStartedEventArgs sceneStartedEventArgs:
-                    
+                case SceneStartedEventArgs:
+                    StartCoroutine(CreateGrid());
+                    break;
+                case PieceSelectedEventArgs pieceSelectedEventArgs:
+                    int row = pieceSelectedEventArgs.Row;
+                    int column = pieceSelectedEventArgs.Column;
+                    if (row is <= 7 and >= 0 && column is >= 0 and <= 7)
+                    {
+                        OnPieceControllerSelectedHandler(_grid[row, column]);
+                    }
+                    break;
+                case TimeIsFinishedEventArgs:
+                    StopAllCoroutines();
+                    DOTween.KillAll();
+                    StartCoroutine(DestroyGrid());
                     break;
             }
         }
-
         protected override void Awake()
         {
             base.Awake();
@@ -57,15 +71,8 @@ namespace _GameFiles.Scripts.Managers
                 pc.gameObject.SetActive(false);
                 _piecesQueue.Enqueue(pc);
             }
-
         }
-
-        protected override void Start()
-        {
-            base.Start();
-            StartCoroutine(CreateGrid());
-        }
-
+        
         private IEnumerator CreateGrid()
         {
             float x = -3.5f;
@@ -77,11 +84,12 @@ namespace _GameFiles.Scripts.Managers
                 {
                     Vector3 pos = new Vector3(x, y, 0);
                     PieceController pc = _piecesQueue.Dequeue();
+                    _activePieces.Add(pc);
                     pc.OnPieceControllerSelected += OnPieceControllerSelectedHandler;
                     pc.OnPieceAfterMove += OnPieceAfterMoveHandler;
                     
                     IPiece.ColorType type = GridStartColorCheck.GetPieceType(i, j, _grid);
-                    pc.SetPiece(pos,_sprites[(int)type],new int[] { i, j }, type);
+                    pc.SetPiece(pos,_sprites[(int)type],new[] { i, j }, type);
                     _grid[i, j] = pc;
                     y++;
                     yield return new WaitForSeconds(.001f);
@@ -92,7 +100,25 @@ namespace _GameFiles.Scripts.Managers
                 y = -6f;
             }
 
+            GridCreatedEventArgs gridCreatedEventArgs = new GridCreatedEventArgs();
+            Broadcast(gridCreatedEventArgs);
+            BroadcastUpward(gridCreatedEventArgs);
             yield return null;
+        }
+
+        private IEnumerator DestroyGrid()
+        {
+            foreach (PieceController piece in _activePieces)
+            {
+                piece.DestroyPiece();
+                _piecesQueue.Enqueue(piece);
+                yield return new WaitForSeconds(.001f);
+            }
+
+            yield return new WaitForSeconds(1f);
+            GridDestroyedEventArgs gridDestroyedEventArgs = new GridDestroyedEventArgs();
+            BroadcastUpward(gridDestroyedEventArgs);
+            Broadcast(gridDestroyedEventArgs);
         }
         
         private void OnPieceControllerSelectedHandler(PieceController piece)
@@ -101,10 +127,11 @@ namespace _GameFiles.Scripts.Managers
             {
                 _movedPieces.Clear();
                 _explodeSet.Clear();
-                movedPieceCounter = 0;
+                _movedPieceCounter = 0;
                 _movedPieces.Add(piece);
                 _selectedPieces[0] = piece;
                 _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(true);
+                Broadcast(new PieceSelectedEventArgs(_selectedPieces[0].Coordination[0], _selectedPieces[0].Coordination[1]));
                 piece.RayThrower(true);
             }
             else if(piece.isChangePlace)
@@ -118,18 +145,13 @@ namespace _GameFiles.Scripts.Managers
                 _grid[_selectedPieces[1].Coordination[0], _selectedPieces[1].Coordination[1]] = _selectedPieces[0];
                 
                 _isFirstCame = false;
-                
-                
+
                 ChangePosition.SwapPosition(_selectedPieces[0], _selectedPieces[1]);
-
-                _selectedPieces[0].isSelected = false;
-                _selectedPieces[1].isSelected = false;
-
+                
                 _selectedPieces[0].RayThrower(false);
             }
             else
             {
-                _selectedPieces[0].isSelected = false;
                 _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(false);
                 _selectedPieces[0].RayThrower(false);
                 _selectedPieces[0] = piece;
@@ -140,20 +162,18 @@ namespace _GameFiles.Scripts.Managers
         }
         private void OnPieceAfterMoveHandler(List<PieceController> explodeList)
         {
-            movedPieceCounter++;
+            _movedPieceCounter++;
 
             if (explodeList.Count <= 0 && _selectedPieces[0] != null)
             {
                 if (!_isFirstCame)
                 {
-                    Debug.Log("VAR");
                     _isFirstCame = true;
-                    isFirstContinue = false;
+                    _isFirstContinue = false;
                 }
-                else if (!isFirstContinue)
+                else if (!_isFirstContinue)
                 {
 
-                    Debug.Log("RESWAPPOS");
                     ChangePosition.ReSwapPosition(_selectedPieces[0], _selectedPieces[1]);
 
                     _grid[_selectedPieces[0].Coordination[0], _selectedPieces[0].Coordination[1]] =
@@ -165,9 +185,9 @@ namespace _GameFiles.Scripts.Managers
                     _selectedPieces[1] = null;
                     _movedPieces.Clear();
                     _explodeSet.Clear();
-                    movedPieceCounter = 0;
+                    _movedPieceCounter = 0;
                     _isFirstCame = false;
-                    isFirstContinue = false;
+                    _isFirstContinue = false;
                     return;
                 }
                 MovementFinished(_explodeSet.ToList());
@@ -175,24 +195,18 @@ namespace _GameFiles.Scripts.Managers
             }
 
             _isFirstCame = true;
-            isFirstContinue = true;
-            
-            
+            _isFirstContinue = true;
             _explodeSet.UnionWith(explodeList);
             
              MovementFinished(_explodeSet.ToList());
-             
         }
 
         private void MovementFinished(List<PieceController> explodeList)
         {
-            if (movedPieceCounter != _movedPieces.Count || _explodeSet.Count == 0)
+            if (_movedPieceCounter != _movedPieces.Count || _explodeSet.Count == 0)
             {
-                Debug.Log("Time for wait....." + movedPieceCounter + "  total : " + _movedPieces.Count);
                 return;
             }
-            
-            Debug.Log(explodeList.Count + " bu kadar boom");
             
             HashSet<int> explodedColumnSet = new HashSet<int>();
             
@@ -201,30 +215,22 @@ namespace _GameFiles.Scripts.Managers
                 explodedColumnSet.Add(piece.Coordination[0]);
                 Explode(piece);
             }
-
-            Debug.Log(explodedColumnSet.Count + " kadar kolon gitti");
-
+            
             _movedPieces.Clear();
             _explodeSet.Clear();
-            movedPieceCounter = 0;
+            _movedPieceCounter = 0;
 
             foreach (int row in explodedColumnSet)
             {
-                
                 RowCheck(row);
-                
             }
 
             _selectedPieces[0] = null;
             _selectedPieces[1] = null;
-            isFirstContinue = false;
+            _isFirstContinue = false;
             _isFirstCame = false;
-            Debug.Log("SIFIRLANDI");
 
-            
-            _enumerator = StartCoroutine(ReCheck());
-            
-            // StartCoroutine(ReCheck());
+            StartCoroutine(ReCheck());
         }
 
         private void RowCheck(int row)
@@ -245,19 +251,20 @@ namespace _GameFiles.Scripts.Managers
                     {
                         maxEmptyColumn = i;
                     }
-                    
                 }
             }
 
-            Debug.Log("Row = " + row + " min Empty index = " + minEmptyColumn + " Max empty index = " + maxEmptyColumn );
             FallPieces(row, maxEmptyColumn, minEmptyColumn);
             GetNewPieceToFall(row, 7 - (maxEmptyColumn - minEmptyColumn));
         }
 
         private void Explode(PieceController piece)
         {
+            BroadcastUpward(new PieceExplodedEventArgs());
+            ExplodeEffectController.Instance.ExplodeEffect(piece);
             piece.Exploded();
             _piecesQueue.Enqueue(piece);
+            _activePieces.Remove(piece);
             piece.OnPieceAfterMove -= OnPieceAfterMoveHandler;
             piece.OnPieceControllerSelected -= OnPieceControllerSelectedHandler;
             _grid[piece.Coordination[0], piece.Coordination[1]] = null;
@@ -278,10 +285,11 @@ namespace _GameFiles.Scripts.Managers
 
                 Vector3 pos = new Vector3(row - 3.5f, i - 6);
                 PieceController pc = _piecesQueue.Dequeue();
+                _activePieces.Add(pc);
                 pc.OnPieceAfterMove += OnPieceAfterMoveHandler;
                 pc.OnPieceControllerSelected += OnPieceControllerSelectedHandler;
                 IPiece.ColorType type = (IPiece.ColorType)UnityEngine.Random.Range(0, 5);
-                pc.SetPiece(pos,_sprites[(int)type],new int[] { row, i }, type);
+                pc.SetPiece(pos,_sprites[(int)type],new[] { row, i }, type);
                 _grid[row, i] = pc;
                 _movedPieces.Add(pc);
             }
@@ -289,17 +297,12 @@ namespace _GameFiles.Scripts.Managers
 
         private IEnumerator ReCheck()
         {
-            yield return new WaitForSeconds(1.0f);
+            yield return new WaitForSeconds(.4f);
             
-            for (int i = 0; i < _movedPieces.Count; i++)
+            foreach (PieceController piece in _movedPieces)
             {
-                Debug.Log("set count : " + _explodeSet.Count);
-                _movedPieces[i].PieceMoved();
+                piece.PieceMoved();
             }
-            // yield return new WaitForSeconds(.5f);
-            // _movedPieces.Clear();
-            // movedPieceCounter = 0;
-            Debug.Log("recheckComplete");
         }
     }
 }

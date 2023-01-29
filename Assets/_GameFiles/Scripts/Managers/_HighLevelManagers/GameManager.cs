@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using _GameFiles.Scripts.EventArgs;
 using TadPoleFramework;
 using TadPoleFramework.Core;
 using TadPoleFramework.Game;
@@ -10,13 +11,34 @@ namespace _GameFiles.Scripts.Managers._HighLevelManagers
     {
         [SerializeField] private LevelManager levelManager;
         [SerializeField] private GridManager gridManager;
+        [SerializeField] private SwipeManager swipeManager;
         
         private GameModel _gameModel;
         public override void Receive(BaseEventArgs baseEventArgs)
         {
             switch (baseEventArgs)
             {
-                
+                case SceneStartedEventArgs sceneStartedEventArgs:
+                    Broadcast(sceneStartedEventArgs);
+                    _gameModel.InstantScore = 0;
+                    break;
+                case GridCreatedEventArgs gridCreatedEventArgs:
+                    Broadcast(gridCreatedEventArgs);
+                    break;
+                case TimeIsFinishedEventArgs timeIsFinishedEventArgs:
+                    BroadcastDownward(timeIsFinishedEventArgs);
+                    if (_gameModel.InstantScore > _gameModel.Score)
+                    {
+                        _gameModel.Score = _gameModel.InstantScore;
+                    }
+                    break;
+                case GridDestroyedEventArgs gridDestroyedEventArgs:
+                    Broadcast(gridDestroyedEventArgs);
+                    break;
+                case PieceExplodedEventArgs pieceExplodedEventArgs:
+                    _gameModel.InstantScore++;
+                    Broadcast(pieceExplodedEventArgs);
+                    break;
             }
         }
 
@@ -30,6 +52,9 @@ namespace _GameFiles.Scripts.Managers._HighLevelManagers
             
             gridManager.InjectMediator(mediator);
             gridManager.InjectManager(this);
+            
+            swipeManager.InjectMediator(mediator);
+            swipeManager.InjectManager(this);
         }
         
         public void InjectModel(GameModel gameModel)

@@ -1,19 +1,23 @@
 using TadPoleFramework.App;
 using TadPoleFramework.Core;
+using UnityEngine.Device;
+
 // using ElephantSDK;
 // using GameAnalyticsSDK;
-namespace TadPoleFramework
+namespace _GameFiles.Scripts.Managers._HighLevelManagers
 {
     public class AppManager : BaseAppManager
     {
         public override void Receive(BaseEventArgs baseEventArgs)
         {
-            switch (baseEventArgs)
-            {
-                
-            }
+            
         }
 
+        protected override void Awake()
+        {
+            base.Awake();
+            Screen.SetResolution(800, 1280, true);
+        }
         /*protected override void Start()
         {
             base.Start();

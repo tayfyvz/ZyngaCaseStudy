@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace _GameFiles.Scripts.ScriptableObjects
 {
-    [CreateAssetMenu(fileName = "gridData", menuName = "Grid Data", order = 53)]
+    [CreateAssetMenu(fileName = "gridData", menuName = "Grid Data", order = 52)]
     public class GridData : ScriptableObject
     {
         [SerializeField] private PieceController pieceControllerPrefab;

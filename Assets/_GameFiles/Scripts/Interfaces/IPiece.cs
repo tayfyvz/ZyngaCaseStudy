@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using _GameFiles.Scripts.Controllers;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace _GameFiles.Scripts.Interfaces
 {
@@ -27,6 +25,8 @@ namespace _GameFiles.Scripts.Interfaces
         public SpriteMask SpriteMask { get;}
 
         public void SetPiece(Vector3 pos, Sprite sprite, int[] coordinates, ColorType colorType);
+
+        public void DestroyPiece();
         public void Exploded();
 
 
