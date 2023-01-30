@@ -1,8 +1,9 @@
 using _GameFiles.Scripts.EventArgs;
 using _GameFiles.Scripts.ScriptableObjects;
 using _GameFiles.Scripts.Views;
-using TadPoleFramework.Core;
-using TadPoleFramework.UI;
+using EventDrivenFramework.Core;
+using EventDrivenFramework.Core;
+using EventDrivenFramework.UI;
 using UnityEngine;
 
 namespace _GameFiles.Scripts.Presenters

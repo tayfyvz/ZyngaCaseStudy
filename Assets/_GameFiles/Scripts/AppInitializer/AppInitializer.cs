@@ -1,7 +1,8 @@
 using _GameFiles.Scripts.Managers._HighLevelManagers;
 using _GameFiles.Scripts.Models;
-using TadPoleFramework;
-using TadPoleFramework.Core;
+using EventDrivenFramework.Core;
+using EventDrivenFramework;
+using EventDrivenFramework.Core;
 using UnityEngine;
 
 namespace _GameFiles.Scripts.AppInitializer

@@ -2,8 +2,9 @@ using System.ComponentModel;
 using _GameFiles.Scripts.EventArgs;
 using _GameFiles.Scripts.Models;
 using DG.Tweening;
-using TadPoleFramework;
-using TadPoleFramework.Core;
+using EventDrivenFramework.Core;
+using EventDrivenFramework;
+using EventDrivenFramework.Core;
 using UnityEngine;
 
 namespace _GameFiles.Scripts.Managers

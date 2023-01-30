@@ -6,7 +6,8 @@ using _GameFiles.Scripts.Interfaces;
 using _GameFiles.Scripts.ScriptableObjects;
 using _GameFiles.Scripts.Utilities;
 using DG.Tweening;
-using TadPoleFramework.Core;
+using EventDrivenFramework.Core;
+using EventDrivenFramework.Core;
 using UnityEngine;
 
 namespace _GameFiles.Scripts.Managers

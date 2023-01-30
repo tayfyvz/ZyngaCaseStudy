@@ -1,9 +1,10 @@
 using System.ComponentModel;
 using _GameFiles.Scripts.EventArgs;
 using _GameFiles.Scripts.Models;
-using TadPoleFramework;
-using TadPoleFramework.Core;
-using TadPoleFramework.Game;
+using EventDrivenFramework.Core;
+using EventDrivenFramework;
+using EventDrivenFramework.Core;
+using EventDrivenFramework.Game;
 using UnityEngine;
 
 namespace _GameFiles.Scripts.Managers._HighLevelManagers

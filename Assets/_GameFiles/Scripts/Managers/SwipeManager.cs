@@ -1,7 +1,8 @@
 ﻿using _GameFiles.Scripts.Controllers;
 using _GameFiles.Scripts.EventArgs;
+using EventDrivenFramework.Core;
 using GG.Infrastructure.Utils.Swipe;
-using TadPoleFramework.Core;
+using EventDrivenFramework.Core;
 using UnityEngine;
 
 namespace _GameFiles.Scripts.Managers

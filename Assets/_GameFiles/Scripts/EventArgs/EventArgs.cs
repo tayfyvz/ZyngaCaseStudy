@@ -1,5 +1,6 @@
 using _GameFiles.Scripts.Controllers;
-using TadPoleFramework.Core;
+using EventDrivenFramework.Core;
+using EventDrivenFramework.Core;
 
 //Contains event classes.
 namespace _GameFiles.Scripts.EventArgs
