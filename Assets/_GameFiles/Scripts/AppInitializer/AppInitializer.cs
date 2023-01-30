@@ -1,4 +1,5 @@
 using _GameFiles.Scripts.Managers._HighLevelManagers;
+using _GameFiles.Scripts.Models;
 using TadPoleFramework;
 using TadPoleFramework.Core;
 using UnityEngine;

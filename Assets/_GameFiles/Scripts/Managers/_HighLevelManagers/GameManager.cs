@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using _GameFiles.Scripts.EventArgs;
+using _GameFiles.Scripts.Models;
 using TadPoleFramework;
 using TadPoleFramework.Core;
 using TadPoleFramework.Game;
@@ -7,6 +8,8 @@ using UnityEngine;
 
 namespace _GameFiles.Scripts.Managers._HighLevelManagers
 {
+    //Builds the event driven infrastructure by setting up the communication between
+    // level manager, grid manager, swipe manager and UI manager.
     public class GameManager : BaseGameManager
     {
         [SerializeField] private LevelManager levelManager;
@@ -48,7 +51,6 @@ namespace _GameFiles.Scripts.Managers._HighLevelManagers
             IMediator mediator = new BaseMediator();
             levelManager.InjectMediator(mediator);
             levelManager.InjectManager(this);
-            levelManager.InjectModel(_gameModel);
             
             gridManager.InjectMediator(mediator);
             gridManager.InjectManager(this);

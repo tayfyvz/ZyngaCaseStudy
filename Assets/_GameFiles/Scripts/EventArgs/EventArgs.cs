@@ -1,5 +1,7 @@
+using _GameFiles.Scripts.Controllers;
 using TadPoleFramework.Core;
 
+//Contains event classes.
 namespace _GameFiles.Scripts.EventArgs
 {
     public class SceneStartedEventArgs : BaseEventArgs
@@ -27,13 +29,11 @@ namespace _GameFiles.Scripts.EventArgs
 
     public class PieceSelectedEventArgs : BaseEventArgs
     {
-        public int Row { get; set; }
-        public int Column { get; set; }
+        public PieceController PieceController { get; set; }
 
-        public PieceSelectedEventArgs(params int[] coordination)
+        public PieceSelectedEventArgs(PieceController pieceController)
         {
-            Row = coordination[0];
-            Column = coordination[1];
+            PieceController = pieceController;
         }
     }
 
@@ -41,10 +41,20 @@ namespace _GameFiles.Scripts.EventArgs
     {
         
     }
+
+    public class SwipedEventArgs : BaseEventArgs
+    {
+        public int Row { get; set; }
+        public int Column { get; set; }
+
+        public SwipedEventArgs(int row, int column)
+        {
+            Row = row;
+            Column = column;
+        }
+    }
     public class TimeIsFinishedEventArgs : BaseEventArgs
     {
         
     }
-
-    
 }

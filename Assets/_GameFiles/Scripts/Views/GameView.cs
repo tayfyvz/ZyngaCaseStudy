@@ -8,6 +8,7 @@ using UnityEngine.UI;
 
 namespace _GameFiles.Scripts.Views
 {
+    // Game view and timer management.
     public class GameView : BaseView
     {
         [SerializeField] private Image background;

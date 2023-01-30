@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using _GameFiles.Scripts.Controllers;
 using UnityEngine;
 
@@ -7,8 +6,8 @@ namespace _GameFiles.Scripts.Interfaces
 {
     public interface IPiece
     {
-        public Action<PieceController> OnPieceControllerSelected { get; set; }
-        public Action<List<PieceController>> OnPieceAfterMove { get; set; }
+        public Action<PieceController> OnPieceControllerMouseDown { get; set; }
+        public Action<PieceController> OnPieceControllerMouseUp { get; set; }
 
         public SpriteRenderer SpriteRenderer { get; }
         public int[] Coordination { get; set; }

@@ -1,8 +1,9 @@
 using TadPoleFramework.Game;
 using UnityEngine;
 
-namespace TadPoleFramework
+namespace _GameFiles.Scripts.Models
 {
+    //Contains playerPrefs.
     public class GameModel : BaseGameModel
     {
         #region Score //////////////////////////////////////////////////////
@@ -31,19 +32,6 @@ namespace TadPoleFramework
         }
         #endregion
         
-
-        #region Level //////////////////////////////////////////////////////
-        protected string prefKey_Level = "Level";
-        public int Level
-        {
-            get { return PlayerPrefs.GetInt(prefKey_Level); }
-            set
-            {
-                PlayerPrefs.SetInt(prefKey_Level, value);
-                OnPropertyChanged(nameof(Level));
-            }
-        }
-        #endregion
         
         public GameModel()
         {
@@ -61,13 +49,6 @@ namespace TadPoleFramework
                 InstantScore = PlayerPrefs.GetInt(prefKey_InstantScore);
             #endregion
             
-            #region Level //////////////////////////////////////////////////
-            if (!PlayerPrefs.HasKey(prefKey_Level))
-                Level = 1;
-            else
-                Level = PlayerPrefs.GetInt(prefKey_Level);
-            #endregion
-
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using _GameFiles.Scripts.EventArgs;
+using _GameFiles.Scripts.Models;
 using _GameFiles.Scripts.Presenters;
 using TadPoleFramework;
 using TadPoleFramework.Core;
@@ -8,6 +9,7 @@ using UnityEngine;
 
 namespace _GameFiles.Scripts.Managers._HighLevelManagers
 {
+    //Manages the event communication to presenter.
     public class UIManager : BaseUIManager
     {
         [SerializeField] private GameViewPresenter gameViewPresenter;

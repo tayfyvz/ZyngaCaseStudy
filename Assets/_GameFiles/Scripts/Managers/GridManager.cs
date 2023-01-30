@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using _GameFiles.Scripts.Controllers;
 using _GameFiles.Scripts.EventArgs;
 using _GameFiles.Scripts.Interfaces;
@@ -12,38 +11,57 @@ using UnityEngine;
 
 namespace _GameFiles.Scripts.Managers
 {
+    /*
+     * Inherits BaseManager which gives capability of event broadcasting
+     * between managers.
+     * 
+     * Grid Manager manages the following functionalities;
+     * Creation of the grid,
+     * Destruction of the grid,
+     * Object creation by using object pooling technique,
+     * Manages the movement of the jewel objects on the grid.
+     * 
+     */
     public class GridManager : BaseManager
     {
         [SerializeField] private GridData gridData;
         
-        private readonly HashSet<PieceController> _explodeSet = new HashSet<PieceController>();
+        private PieceController[,] _grid;
         
-        private readonly Queue<PieceController> _piecesQueue = new Queue<PieceController>();
+        private Queue<PieceController> _piecesQueue = new Queue<PieceController>();
         
         private List<Sprite> _sprites = new List<Sprite>();
-        private readonly List<PieceController> _movedPieces = new List<PieceController>();
-        private readonly List<PieceController> _activePieces = new List<PieceController>();
         
-        private PieceController[,] _grid = new PieceController[8, 8];
-        private readonly PieceController[] _selectedPieces = new PieceController[2];
-        
-        private int _movedPieceCounter;
+        private List<PieceController> _activePieces = new List<PieceController>();
+        private List<PieceController> _movedPieces = new List<PieceController>();
 
-        private bool _isFirstCame;
-        private bool _isFirstContinue;
+        
+        private PieceController[] _selectedPieces = new PieceController[2];
+
+        private PieceController _lastClickedPiece;
+
+        private bool _isSwiped;
+        
+        //Receives triggered events.
         public override void Receive(BaseEventArgs baseEventArgs)
         {
             switch (baseEventArgs)
             {
                 case SceneStartedEventArgs:
+                    _selectedPieces[0] = null;
+                    _selectedPieces[1] = null;
                     StartCoroutine(CreateGrid());
                     break;
-                case PieceSelectedEventArgs pieceSelectedEventArgs:
-                    int row = pieceSelectedEventArgs.Row;
-                    int column = pieceSelectedEventArgs.Column;
-                    if (row is <= 7 and >= 0 && column is >= 0 and <= 7)
+                case SwipedEventArgs swipedEventArgs:
+                    _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(false);
+                    _selectedPieces[0] = _lastClickedPiece;
+                    _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(true);
+                    _isSwiped = true;
+                    if (swipedEventArgs.Row <= _grid.GetLength(0) - 1 && swipedEventArgs.Row >= 0 && 
+                        swipedEventArgs.Column <= _grid.GetLength(0) - 1 && swipedEventArgs.Column >= 0)
                     {
-                        OnPieceControllerSelectedHandler(_grid[row, column]);
+                        _selectedPieces[1] = _grid[swipedEventArgs.Row, swipedEventArgs.Column];
+                        OnSwipeComplete();
                     }
                     break;
                 case TimeIsFinishedEventArgs:
@@ -56,12 +74,19 @@ namespace _GameFiles.Scripts.Managers
         protected override void Awake()
         {
             base.Awake();
+            
+            //Loads the icon files from resources.
             _sprites = new List<Sprite>(Resources.LoadAll<Sprite>("Icons"));
+            
+            //Initialize the jewel objects pool.
+            //This pool is being used for object pooling methodology.
             CreatePiecePool();
         }
 
+        //Fills the object pooling queue.
         private void CreatePiecePool()
         {
+            //Gets the number of jewel objects from configuration container object.
             int maxPiece = gridData.MaxPiece;
             PieceController pcPrefab = gridData.PieceControllerPrefab;
 
@@ -73,25 +98,33 @@ namespace _GameFiles.Scripts.Managers
             }
         }
         
+        //Creates grid on game start and time out.
         private IEnumerator CreateGrid()
         {
+            _grid = new PieceController[gridData.RowSize, gridData.ColumnSize];
+            
             float x = -3.5f;
             float y = -6f;
 
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < gridData.RowSize; i++)
             {
-                for (int j = 0; j < 8; j++)
+                for (int j = 0; j < gridData.ColumnSize; j++)
                 {
                     Vector3 pos = new Vector3(x, y, 0);
                     PieceController pc = _piecesQueue.Dequeue();
                     _activePieces.Add(pc);
-                    pc.OnPieceControllerSelected += OnPieceControllerSelectedHandler;
-                    pc.OnPieceAfterMove += OnPieceAfterMoveHandler;
-                    
+
+                    //Get the suitable piece type according to its neighbours.
+                    //Makes sure three consecutive neighbours are not the same type.
                     IPiece.ColorType type = GridStartColorCheck.GetPieceType(i, j, _grid);
+                    
+                    //Sets jewel objects icon and position on the grid.
                     pc.SetPiece(pos,_sprites[(int)type],new[] { i, j }, type);
+                    
                     _grid[i, j] = pc;
                     y++;
+                    
+                    //Waits for drop motion.
                     yield return new WaitForSeconds(.001f);
                 }
                 yield return new WaitForSeconds(.01f);
@@ -100,209 +133,225 @@ namespace _GameFiles.Scripts.Managers
                 y = -6f;
             }
 
+            //Adds mouse events after grid creation.
+            foreach (PieceController piece in _activePieces)
+            {
+                piece.OnPieceControllerMouseDown += OnPieceControllerMouseDown;
+                piece.OnPieceControllerMouseUp += OnPieceControllerMouseUp;
+            }
+            
+            //Grid creation event is raised.
+            //This event triggers SwipeManager and GameManager.
             GridCreatedEventArgs gridCreatedEventArgs = new GridCreatedEventArgs();
             Broadcast(gridCreatedEventArgs);
             BroadcastUpward(gridCreatedEventArgs);
             yield return null;
         }
 
+        //Destroys the grid when the time is up.
         private IEnumerator DestroyGrid()
         {
+            _selectedPieces[0] = null;
+            _selectedPieces[1] = null;
+            
             foreach (PieceController piece in _activePieces)
             {
                 piece.DestroyPiece();
+                piece.OnPieceControllerMouseDown -= OnPieceControllerMouseDown;
+                piece.OnPieceControllerMouseUp -= OnPieceControllerMouseUp;
                 _piecesQueue.Enqueue(piece);
-                yield return new WaitForSeconds(.001f);
             }
-
+            
+            _movedPieces.Clear();
+            _activePieces.Clear();
+            
             yield return new WaitForSeconds(1f);
+            
+            //Grid destroyed event is raised.
+            //This event triggers LevelManager and GameManager.
             GridDestroyedEventArgs gridDestroyedEventArgs = new GridDestroyedEventArgs();
             BroadcastUpward(gridDestroyedEventArgs);
             Broadcast(gridDestroyedEventArgs);
         }
         
-        private void OnPieceControllerSelectedHandler(PieceController piece)
+        //Triggered when jewel object is tapped.
+        private void OnPieceControllerMouseDown(PieceController piece)
         {
+            _isSwiped = false;
+            //If the selected piece is the first one.
             if (_selectedPieces[0] == null)
             {
-                _movedPieces.Clear();
-                _explodeSet.Clear();
-                _movedPieceCounter = 0;
-                _movedPieces.Add(piece);
                 _selectedPieces[0] = piece;
+                //Activate the effect
                 _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(true);
-                Broadcast(new PieceSelectedEventArgs(_selectedPieces[0].Coordination[0], _selectedPieces[0].Coordination[1]));
-                piece.RayThrower(true);
             }
-            else if(piece.isChangePlace)
-            {
-                _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(false);
 
-                _movedPieces.Add(piece);
-                _selectedPieces[1] = piece;
-                
-                _grid[_selectedPieces[0].Coordination[0], _selectedPieces[0].Coordination[1]] = _selectedPieces[1];
-                _grid[_selectedPieces[1].Coordination[0], _selectedPieces[1].Coordination[1]] = _selectedPieces[0];
-                
-                _isFirstCame = false;
-
-                ChangePosition.SwapPosition(_selectedPieces[0], _selectedPieces[1]);
-                
-                _selectedPieces[0].RayThrower(false);
-            }
-            else
-            {
-                _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(false);
-                _selectedPieces[0].RayThrower(false);
-                _selectedPieces[0] = piece;
-                _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(true);
-                _selectedPieces[0].RayThrower(true);
-            }
-            
+            _lastClickedPiece = piece;
+            Broadcast(new PieceSelectedEventArgs(piece));
         }
-        private void OnPieceAfterMoveHandler(List<PieceController> explodeList)
+
+        //Triggered when jewel object is selected if not swiped.
+        private void OnPieceControllerMouseUp(PieceController piece)
         {
-            _movedPieceCounter++;
 
-            if (explodeList.Count <= 0 && _selectedPieces[0] != null)
+            if (!_isSwiped && _selectedPieces[1] == null && _selectedPieces[0] != piece)
             {
-                if (!_isFirstCame)
-                {
-                    _isFirstCame = true;
-                    _isFirstContinue = false;
-                }
-                else if (!_isFirstContinue)
-                {
+                _selectedPieces[1] = piece;
 
-                    ChangePosition.ReSwapPosition(_selectedPieces[0], _selectedPieces[1]);
+                //Swaps the position of the jewel objects and initialize rule checking,
+                // and gets set of objects to explode.
+                HashSet<PieceController> explodeSet = PositionUtility.SwapPositions(_selectedPieces, _grid);
 
-                    _grid[_selectedPieces[0].Coordination[0], _selectedPieces[0].Coordination[1]] =
-                        _selectedPieces[0];
-                    _grid[_selectedPieces[1].Coordination[0], _selectedPieces[1].Coordination[1]] =
-                        _selectedPieces[1];
-
+                
+                if (explodeSet != null)
+                { 
+                    //Deactivate the effect
+                    _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(false);
                     _selectedPieces[0] = null;
                     _selectedPieces[1] = null;
-                    _movedPieces.Clear();
-                    _explodeSet.Clear();
-                    _movedPieceCounter = 0;
-                    _isFirstCame = false;
-                    _isFirstContinue = false;
-                    return;
+                    StartCoroutine(ExplodePieces(explodeSet));
                 }
-                MovementFinished(_explodeSet.ToList());
-                return;
             }
-
-            _isFirstCame = true;
-            _isFirstContinue = true;
-            _explodeSet.UnionWith(explodeList);
-            
-             MovementFinished(_explodeSet.ToList());
         }
 
-        private void MovementFinished(List<PieceController> explodeList)
+        //Triggered when jewel object is swiped.
+        private void OnSwipeComplete()
         {
-            if (_movedPieceCounter != _movedPieces.Count || _explodeSet.Count == 0)
-            {
-                return;
+            //Swaps the position of the jewel objects and initialize rule checking,
+            // and gets set of objects to explode.
+            HashSet<PieceController> explodeSet = PositionUtility.SwapPositions(_selectedPieces, _grid);
+
+            if (explodeSet != null)
+            { 
+                //Deactivate the effect
+                _selectedPieces[0].transform.GetChild(0).gameObject.SetActive(false);
+                _selectedPieces[0] = null;
+                _selectedPieces[1] = null;
+                StartCoroutine(ExplodePieces(explodeSet));
             }
+        }
+        
+        //Explodes the objects, brings down the new jewel objects
+        // and triggers object checking recursively for moved objects.
+        private IEnumerator ExplodePieces(HashSet<PieceController> explodeSet)
+        {
+            yield return new WaitForSeconds(.3f);
             
-            HashSet<int> explodedColumnSet = new HashSet<int>();
-            
-            foreach (PieceController piece in explodeList)
+            HashSet<int> rowSet = new HashSet<int>();
+
+            foreach (PieceController piece in explodeSet)
             {
-                explodedColumnSet.Add(piece.Coordination[0]);
                 Explode(piece);
+                rowSet.Add(piece.Coordination[0]);
             }
+            
+            yield return new WaitForSeconds(.3f);
             
             _movedPieces.Clear();
-            _explodeSet.Clear();
-            _movedPieceCounter = 0;
+            
+            //Brings down new jewel objects
+            FallPieces(rowSet);
 
-            foreach (int row in explodedColumnSet)
-            {
-                RowCheck(row);
-            }
-
-            _selectedPieces[0] = null;
-            _selectedPieces[1] = null;
-            _isFirstContinue = false;
-            _isFirstCame = false;
-
-            StartCoroutine(ReCheck());
+            //Triggers object checking recursively for moved objects.
+            StartCoroutine(CheckMovedObjectRecursively());
+            
+            yield return null;
         }
-
-        private void RowCheck(int row)
+        
+        //Explodes the jewel, triggers the animation.
+        private void Explode(PieceController piece)
         {
-            int maxEmptyColumn = 0;
-            int minEmptyColumn = 7;
-
-            for (int i = 0; i < 8; i++)
+            //Animation control. [Singleton]
+            ExplodeEffectController.Instance.ExplodeEffect(piece);
+            
+            piece.Exploded();
+            
+            //Object pooling queue management.
+            _piecesQueue.Enqueue(piece);
+            _activePieces.Remove(piece);
+            
+            piece.OnPieceControllerMouseDown -= OnPieceControllerMouseDown;
+            piece.OnPieceControllerMouseUp -= OnPieceControllerMouseUp;
+            
+            _grid[piece.Coordination[0], piece.Coordination[1]] = null;
+            
+            BroadcastUpward(new PieceExplodedEventArgs());
+        }
+        
+        //Brings down new jewel objects to fill the empty slots in the grid.
+        private void FallPieces(HashSet<int> rowSet)
+        {
+            foreach (int row in rowSet)
             {
-                if (_grid[row, i] == null)
+                for (int i = 0; i < _grid.GetLength(1); i++)
                 {
-                    if (i < minEmptyColumn)
+                    if (_grid[row, i] == null)
                     {
-                        minEmptyColumn = i;
-                    }
+                        bool flag = false;
+                        int emptyPointer = i;
+                        
+                        for (int j = i + 1; j < _grid.GetLength(0); j++)
+                        {
+                            if (_grid[row, j] != null)
+                            {
+                                PositionUtility.MovePiece(row, j, emptyPointer, _grid);
+                                _movedPieces.Add(_grid[row, emptyPointer]);
+                                flag = true;
+                                break;
+                            }
+                        }
 
-                    if (i > maxEmptyColumn)
-                    {
-                        maxEmptyColumn = i;
+                        if (!flag)
+                        {
+                            GetNewPieceToFall(row, i);
+                        }
                     }
                 }
             }
-
-            FallPieces(row, maxEmptyColumn, minEmptyColumn);
-            GetNewPieceToFall(row, 7 - (maxEmptyColumn - minEmptyColumn));
         }
-
-        private void Explode(PieceController piece)
-        {
-            BroadcastUpward(new PieceExplodedEventArgs());
-            ExplodeEffectController.Instance.ExplodeEffect(piece);
-            piece.Exploded();
-            _piecesQueue.Enqueue(piece);
-            _activePieces.Remove(piece);
-            piece.OnPieceAfterMove -= OnPieceAfterMoveHandler;
-            piece.OnPieceControllerSelected -= OnPieceControllerSelectedHandler;
-            _grid[piece.Coordination[0], piece.Coordination[1]] = null;
-        }
-        private void FallPieces(int row, int column, int minEmptyColumn)
-        {
-            for (int i = column + 1; i < 8; i++)
-            {
-                _grid = ChangePosition.MovePiece(row, i, minEmptyColumn, _grid);
-                _movedPieces.Add(_grid[row, i]);
-                minEmptyColumn++;
-            }
-        }
+        
+        //Polls a new object from object pooling queue and place it on grid.
         private void GetNewPieceToFall(int row, int minEmptyIndex)
         {
-            for (int i = minEmptyIndex; i < 8; i++)
+            for (int i = minEmptyIndex; i < gridData.ColumnSize; i++)
             {
-
-                Vector3 pos = new Vector3(row - 3.5f, i - 6);
                 PieceController pc = _piecesQueue.Dequeue();
+                
                 _activePieces.Add(pc);
-                pc.OnPieceAfterMove += OnPieceAfterMoveHandler;
-                pc.OnPieceControllerSelected += OnPieceControllerSelectedHandler;
+                pc.OnPieceControllerMouseDown += OnPieceControllerMouseDown;
+                pc.OnPieceControllerMouseUp += OnPieceControllerMouseUp;
+                
                 IPiece.ColorType type = (IPiece.ColorType)UnityEngine.Random.Range(0, 5);
+                Vector3 pos = new Vector3(row - 3.5f, i - 6);
                 pc.SetPiece(pos,_sprites[(int)type],new[] { row, i }, type);
+                
                 _grid[row, i] = pc;
                 _movedPieces.Add(pc);
             }
         }
 
-        private IEnumerator ReCheck()
+        //Checks the moved objects either by user or explosions,
+        // and triggers rule checking recursively
+        private IEnumerator CheckMovedObjectRecursively()
         {
-            yield return new WaitForSeconds(.4f);
+            HashSet<PieceController> explodeSet = new HashSet<PieceController>();
             
             foreach (PieceController piece in _movedPieces)
             {
-                piece.PieceMoved();
+                PositionUtility.FindMatches(piece, explodeSet, _grid);
+            }
+            
+            if (explodeSet.Count > 0)
+            {
+                yield return new WaitForSeconds(.4f);
+                StartCoroutine(ExplodePieces(explodeSet));
+            }
+            else
+            {
+                _movedPieces.Clear();
+                yield return null;
             }
         }
+        
     }
 }

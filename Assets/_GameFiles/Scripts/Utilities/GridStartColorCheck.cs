@@ -4,6 +4,8 @@ using _GameFiles.Scripts.Interfaces;
 
 namespace _GameFiles.Scripts.Utilities
 {
+    //Makes sure in the start of the game,
+    // there is no valid match.
     public static class GridStartColorCheck 
     {
         public static IPiece.ColorType GetPieceType(int i, int j, PieceController[,] pieces)

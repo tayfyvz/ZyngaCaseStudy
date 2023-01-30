@@ -6,12 +6,14 @@ using UnityEngine;
 
 namespace _GameFiles.Scripts.Controllers
 {
+    //Explode effects are managed by object pooling.
     public class ExplodeEffectController : MonoSingleton<ExplodeEffectController>
     {
         [SerializeField] private ExplodeData explodeData;
 
         private readonly Queue<ParticleSystem> _effectsQueue = new Queue<ParticleSystem>();
         
+        //Fills the effects pooling queue.
         private void Awake()
         {
             int maxPiece = explodeData.MaxEffect;
@@ -24,7 +26,7 @@ namespace _GameFiles.Scripts.Controllers
                 _effectsQueue.Enqueue(effect);
             }
         }
-
+        
         public void ExplodeEffect(PieceController piece)
         {
             ParticleSystem effect = _effectsQueue.Dequeue();

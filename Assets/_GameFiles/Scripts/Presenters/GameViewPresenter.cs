@@ -7,6 +7,7 @@ using UnityEngine;
 
 namespace _GameFiles.Scripts.Presenters
 {
+    //Manages the game view.
     public class GameViewPresenter : BasePresenter
     {
         [SerializeField] private TimerData timerData;
@@ -17,10 +18,10 @@ namespace _GameFiles.Scripts.Presenters
                 case SceneStartedEventArgs sceneStartedEventArgs:
                     (view as GameView).ActivateView(timerData.Duration, sceneStartedEventArgs.HighScore);
                     break;
-                case GridCreatedEventArgs gridCreatedEventArgs:
+                case GridCreatedEventArgs:
                     (view as GameView).StartTimer();
                     break;
-                case PieceExplodedEventArgs pieceExplodedEventArgs:
+                case PieceExplodedEventArgs:
                     (view as GameView).SetScoreText();
                     break;
             }
